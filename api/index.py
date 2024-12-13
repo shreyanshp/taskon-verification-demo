@@ -21,7 +21,6 @@ app.add_middleware(
 
 class VerificationResponse(BaseModel):
     result: dict
-    error: Optional[str] = None
 
 API_URL = "https://neko-web.api.wallet.bitcoin.com/api/v2/quests/progresses"
 SEASON_ID = "baa08abe-d5c3-4a53-befe-1962d88e0a8a"
@@ -54,7 +53,7 @@ async def verify_task(
 
             # Check if the response data is not a blank array
             is_valid = isinstance(data, list) and len(data) > 0
-            return VerificationResponse(result={"isValid": is_valid}, error=None if is_valid else "Task not completed")
+            return VerificationResponse(result={"isValid": is_valid})
 
         except httpx.RequestError as e:
             raise HTTPException(
