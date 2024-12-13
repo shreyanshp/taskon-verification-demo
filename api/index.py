@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional
 from pydantic import BaseModel
+import httpx
 
 app = FastAPI(
     title="TaskOn Verification API Demo",
@@ -19,37 +20,47 @@ app.add_middleware(
 )
 
 class VerificationResponse(BaseModel):
-    result: dict = {"isValid": bool}
+    result: dict
     error: Optional[str] = None
 
-DEMO_COMPLETED_TASKS = {
-    # Demo wallet addresses
-    "0xd5045deea369d64ab7efab41ad18b82eeabcdefg",
-    "0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
-    # Demo social accounts
-    "taskonxyz",
-    "1084460817220641111",  # Discord ID
-    "6881505111",  # Telegram ID
-    "demo@taskon.xyz"
-}
+API_URL = "https://neko-web.api.wallet.bitcoin.com/api/v2/quests/progresses"
+SEASON_ID = "baa08abe-d5c3-4a53-befe-1962d88e0a8a"
 
 @app.get(
     "/api/task/verification",
     response_model=VerificationResponse,
     summary="Verify Task Completion",
-    description="Verify if a user has completed the task based on their wallet address or social media ID",
+    description="Verify if a user has completed the task based on their wallet address.",
 )
 async def verify_task(
     address: str,
     authorization: Optional[str] = Header(None)
 ) -> VerificationResponse:
-    # Convert address to lowercase for case-insensitive comparison
-    address = address.lower()
-    
-    # Demo implementation - check if address exists in demo completed tasks
-    is_valid = address in DEMO_COMPLETED_TASKS
-    
-    return VerificationResponse(result={"isValid": is_valid}, error=None)
+    async with httpx.AsyncClient() as client:
+        try:
+            # Build the request URL
+            url = f"{API_URL}?address={address}&seasonId={SEASON_ID}"
+            response = await client.get(url)
+            
+            # Check if the request was successful
+            if response.status_code != 200:
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=f"Error fetching data from external API: {response.text}"
+                )
+
+            # Parse the response JSON
+            data = response.json()
+
+            # Check if the response data is not a blank array
+            is_valid = isinstance(data, list) and len(data) > 0
+            return VerificationResponse(result={"isValid": is_valid}, error=None if is_valid else "Task not completed")
+
+        except httpx.RequestError as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"An error occurred while connecting to the external API: {e}"
+            )
 
 @app.get("/")
 async def root():
