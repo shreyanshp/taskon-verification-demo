@@ -23,7 +23,12 @@ class VerificationResponse(BaseModel):
     result: dict
 
 API_URL = "https://neko-web.api.wallet.bitcoin.com/api/v2/quests/progresses"
-SEASON_ID = "baa08abe-d5c3-4a53-befe-1962d88e0a8a"
+SEASON_IDS = [
+    "baa08abe-d5c3-4a53-befe-1962d88e0a8a",
+    "b00f039c-218c-4fc5-8209-fe38000597af",
+    "8e3b98aa-5242-4c12-ae86-f245d7294375",
+    "241efc1b-9dc8-4e4b-bd81-5ee0b94968d3"
+]
 
 @app.get(
     "/api/task/verification",
@@ -37,23 +42,27 @@ async def verify_task(
 ) -> VerificationResponse:
     async with httpx.AsyncClient() as client:
         try:
-            # Build the request URL
-            url = f"{API_URL}?address={address}&seasonId={SEASON_ID}"
-            response = await client.get(url)
-            
-            # Check if the request was successful
-            if response.status_code != 200:
-                raise HTTPException(
-                    status_code=response.status_code,
-                    detail=f"Error fetching data from external API: {response.text}"
-                )
+            for season_id in SEASON_IDS:
+                # Build the request URL
+                url = f"{API_URL}?address={address}&seasonId={season_id}"
+                response = await client.get(url)
 
-            # Parse the response JSON
-            data = response.json()
+                # Check if the request was successful
+                if response.status_code != 200:
+                    raise HTTPException(
+                        status_code=response.status_code,
+                        detail=f"Error fetching data from external API: {response.text}"
+                    )
 
-            # Check if the response data is not a blank array
-            is_valid = isinstance(data, list) and len(data) > 0
-            return VerificationResponse(result={"isValid": is_valid})
+                # Parse the response JSON
+                data = response.json()
+
+                # Check if the response data is not a blank array
+                if isinstance(data, list) and len(data) > 0:
+                    return VerificationResponse(result={"isValid": True})
+
+            # If all season IDs are exhausted and no data found, return invalid
+            return VerificationResponse(result={"isValid": False})
 
         except httpx.RequestError as e:
             raise HTTPException(
