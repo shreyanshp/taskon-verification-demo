@@ -30,7 +30,7 @@ RSS_FEED_URL = "https://eu.jotform.com/rss/243640065431045/"
     description="Check if the provided email exists in the RSS feed.",
 )
 async def verify_email(
-    email: str = Query(..., description="The email of the user.")
+    address: str = Query(..., description="The email of the user.")
 ) -> VerificationResponse:
     async with httpx.AsyncClient() as client:
         try:
@@ -49,7 +49,7 @@ async def verify_email(
 
             # Check if the email exists in the response content
             rss_content = response.text
-            if email in rss_content:
+            if address in rss_content:
                 return VerificationResponse(result={"isValid": True})
             else:
                 return VerificationResponse(result={"isValid": False})
