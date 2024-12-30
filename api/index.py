@@ -32,6 +32,10 @@ RSS_FEED_URL = "https://eu.jotform.com/rss/243640065431045/"
 async def verify_email(
     address: str = Query(..., description="The email of the user.")
 ) -> VerificationResponse:
+    # Check if the input is blank
+    if not address.strip():
+        return VerificationResponse(result={"isValid": False})
+
     async with httpx.AsyncClient() as client:
         try:
             # Call the RSS feed post API with the required payload
