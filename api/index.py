@@ -33,7 +33,7 @@ async def verify_email(
     email: str = Query(..., description="The email of the user.")
 ) -> VerificationResponse:
     # Check if the input is blank
-    if not address.strip():
+    if not email.strip():
         return VerificationResponse(result={"isValid": False})
 
     async with httpx.AsyncClient() as client:
