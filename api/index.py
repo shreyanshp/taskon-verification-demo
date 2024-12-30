@@ -1,6 +1,5 @@
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from typing import Optional
 from pydantic import BaseModel
 import httpx
 
@@ -22,52 +21,43 @@ app.add_middleware(
 class VerificationResponse(BaseModel):
     result: dict
 
-API_URL = "https://neko-web.api.wallet.bitcoin.com/api/v2/quests/progresses"
-SEASON_IDS = [
-    "baa08abe-d5c3-4a53-befe-1962d88e0a8a",
-    "b00f039c-218c-4fc5-8209-fe38000597af",
-    "8e3b98aa-5242-4c12-ae86-f245d7294375",
-    "241efc1b-9dc8-4e4b-bd81-5ee0b94968d3"
-]
+RSS_FEED_URL = "https://eu.jotform.com/rss/243640065431045/"
 
 @app.get(
     "/api/task/verification",
     response_model=VerificationResponse,
-    summary="Verify Task Completion",
-    description="Verify if a user has completed the task based on their wallet address.",
+    summary="Verify Email in RSS Feed",
+    description="Check if the provided email exists in the RSS feed.",
 )
-async def verify_task(
-    address: str,
-    authorization: Optional[str] = Header(None)
+async def verify_email(
+    email: str = Query(..., description="The email of the user.")
 ) -> VerificationResponse:
     async with httpx.AsyncClient() as client:
         try:
-            for season_id in SEASON_IDS:
-                # Build the request URL
-                url = f"{API_URL}?address={address}&seasonId={season_id}"
-                response = await client.get(url)
+            # Call the RSS feed post API with the required payload
+            rss_payload = {
+                "passKey": "Bitcoin.com",
+            }
+            response = await client.post(RSS_FEED_URL, data=rss_payload)
 
-                # Check if the request was successful
-                if response.status_code != 200:
-                    raise HTTPException(
-                        status_code=response.status_code,
-                        detail=f"Error fetching data from external API: {response.text}"
-                    )
+            # Check if the RSS feed API request was successful
+            if response.status_code != 200:
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=f"Error fetching RSS feed data: {response.text}"
+                )
 
-                # Parse the response JSON
-                data = response.json()
-
-                # Check if the response data is not a blank array
-                if isinstance(data, list) and len(data) > 0:
-                    return VerificationResponse(result={"isValid": True})
-
-            # If all season IDs are exhausted and no data found, return invalid
-            return VerificationResponse(result={"isValid": False})
+            # Check if the email exists in the response content
+            rss_content = response.text
+            if email in rss_content:
+                return VerificationResponse(result={"isValid": True})
+            else:
+                return VerificationResponse(result={"isValid": False})
 
         except httpx.RequestError as e:
             raise HTTPException(
                 status_code=500,
-                detail=f"An error occurred while connecting to the external API: {e}"
+                detail=f"An error occurred while connecting to the RSS feed API: {e}"
             )
 
 @app.get("/")
