@@ -21,7 +21,7 @@ app.add_middleware(
 class VerificationResponse(BaseModel):
     result: dict
 
-RSS_FEED_URL = "https://eu.jotform.com/rss/250020653091040/"
+RSS_FEED_URL = "https://zapier.com/engine/rss/12535328/fr"
 
 @app.get(
     "/api/task/verification",
@@ -38,11 +38,8 @@ async def verify_email(
 
     async with httpx.AsyncClient() as client:
         try:
-            # Call the RSS feed post API with the required payload
-            rss_payload = {
-                "passKey": "Bitcoin.com",
-            }
-            response = await client.post(RSS_FEED_URL, data=rss_payload)
+            # Call the RSS feed API using HTTP GET
+            response = await client.get(RSS_FEED_URL)
 
             # Check if the RSS feed API request was successful
             if response.status_code != 200:
