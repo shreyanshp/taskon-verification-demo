@@ -21,7 +21,7 @@ app.add_middleware(
 class VerificationResponse(BaseModel):
     result: dict
 
-RSS_FEED_URL = "https://eu.jotform.com/rss/243640065431045/"
+RSS_FEED_URL = "https://eu.jotform.com/rss/250020653091040/"
 
 @app.get(
     "/api/task/verification",
