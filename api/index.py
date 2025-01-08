@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import httpx
@@ -32,9 +32,14 @@ RSS_FEED_URL = "https://zapier.com/engine/rss/12535328/fr"
 async def verify_email(
     email: str = Query(..., description="The email of the user.")
 ) -> VerificationResponse:
-    # Check if the input is blank
+    # Check if the input is blank or contains only whitespace
     if not email.strip():
-        return VerificationResponse(result={"isValid": False})
+        return VerificationResponse(
+            result={
+                "isValid": False,
+                "redirectURL": "https://www.freerogernow.org/bitcoincom",
+            }
+        )
 
     async with httpx.AsyncClient() as client:
         try:
@@ -43,9 +48,11 @@ async def verify_email(
 
             # Check if the RSS feed API request was successful
             if response.status_code != 200:
-                raise HTTPException(
-                    status_code=response.status_code,
-                    detail=f"Error fetching RSS feed data: {response.text}"
+                return VerificationResponse(
+                    result={
+                        "isValid": False,
+                        "redirectURL": "https://www.freerogernow.org/bitcoincom",
+                    }
                 )
 
             # Check if the email exists in the response content
@@ -53,13 +60,21 @@ async def verify_email(
             if email in rss_content:
                 return VerificationResponse(result={"isValid": True})
             else:
-                return VerificationResponse(result={"isValid": False})
+                return VerificationResponse(
+                    result={
+                        "isValid": False,
+                        "redirectURL": "https://www.freerogernow.org/bitcoincom",
+                    }
+                )
 
-        except httpx.RequestError as e:
-            raise HTTPException(
-                status_code=500,
-                detail=f"An error occurred while connecting to the RSS feed API: {e}"
+        except httpx.RequestError:
+            return VerificationResponse(
+                result={
+                    "isValid": False,
+                    "redirectURL": "https://www.freerogernow.org/bitcoincom",
+                }
             )
+
 
 @app.get("/")
 async def root():
