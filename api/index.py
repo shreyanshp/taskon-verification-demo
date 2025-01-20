@@ -2,8 +2,6 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import httpx
-import csv
-import time
 
 app = FastAPI(
     title="TaskOn Verification API Demo",
@@ -23,59 +21,45 @@ app.add_middleware(
 class VerificationResponse(BaseModel):
     result: dict
 
-# Public Google Spreadsheet URL (Export in CSV format)
-SPREADSHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1dw5zAOu6jJ9p3oBMT61THVsW8oRpjhxjJEVmlGJEr34/export?format=csv&gid=2134979020"
-
-# Cache to store the spreadsheet data timestamp
-spreadsheet_cache = {"last_fetch_time": 0}
-CACHE_DURATION = 300  # Cache duration in seconds (e.g., 5 minutes)
-
-async def stream_and_search_csv(url: str, query: str) -> bool:
-    """
-    Stream the CSV content and search for the query in rows.
-    """
-    async with httpx.AsyncClient(follow_redirects=True) as client:
-        async with client.stream("GET", url) as response:
-            if response.status_code != 200:
-                raise HTTPException(
-                    status_code=response.status_code,
-                    detail=f"Error fetching spreadsheet data: {response.text}"
-                )
-
-            # Use the HTTP stream directly with the CSV reader
-            response_lines = response.aiter_lines()
-            csv_reader = csv.reader(response_lines)
-
-            # Skip the header row
-            headers = await response_lines.__anext__()
-            csv_reader = csv.reader([headers] + list(response_lines))
-
-            # Search for the query in the CSV rows
-            async for row in csv_reader:
-                if query in row:
-                    return True
-    return False
+RSS_FEED_URL = "https://zapier.com/engine/rss/12535328/fr"
 
 @app.get(
     "/api/task/verification",
     response_model=VerificationResponse,
-    summary="Verify Email in Google Spreadsheet",
-    description="Check if the provided email exists in the Google Spreadsheet.",
+    summary="Verify Email in RSS Feed",
+    description="Check if the provided email exists in the RSS feed.",
 )
 async def verify_email(
     address: str = Query(..., description="The email of the user.")
 ) -> VerificationResponse:
-    # Validate input
+    # Check if the input is blank
     if not address.strip():
         return VerificationResponse(result={"isValid": False})
 
-    # Check cache timestamp to avoid frequent requests
-    if time.time() - spreadsheet_cache["last_fetch_time"] > CACHE_DURATION:
-        spreadsheet_cache["last_fetch_time"] = time.time()
+    async with httpx.AsyncClient() as client:
+        try:
+            # Call the RSS feed API using HTTP GET
+            response = await client.get(RSS_FEED_URL)
 
-    # Stream and search the CSV
-    is_valid = await stream_and_search_csv(SPREADSHEET_CSV_URL, address)
-    return VerificationResponse(result={"isValid": is_valid})
+            # Check if the RSS feed API request was successful
+            if response.status_code != 200:
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=f"Error fetching RSS feed data: {response.text}"
+                )
+
+            # Check if the email exists in the response content
+            rss_content = response.text
+            if address in rss_content:
+                return VerificationResponse(result={"isValid": True})
+            else:
+                return VerificationResponse(result={"isValid": False})
+
+        except httpx.RequestError as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"An error occurred while connecting to the RSS feed API: {e}"
+            )
 
 @app.get("/")
 async def root():
