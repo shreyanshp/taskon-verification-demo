@@ -2,6 +2,8 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import httpx
+import csv
+from io import StringIO
 
 app = FastAPI(
     title="TaskOn Verification API Demo",
@@ -21,13 +23,16 @@ app.add_middleware(
 class VerificationResponse(BaseModel):
     result: dict
 
-RSS_FEED_URL = "https://zapier.com/engine/rss/12535328/fr"
+# Public Google Spreadsheet URL (Export in CSV format)
+SPREADSHEET_CSV_URL = (
+    "https://docs.google.com/spreadsheets/d/e/2PACX-1vRoMTJt5nv0nkmK02vH1jhndbEWaCz3wdf12oMwJGZ7Z4ysuB5K0_zvclzTfwqx4AqTtgJ3CpXHxLZb/pub?gid=2134979020&single=true&output=csv"
+)
 
 @app.get(
     "/api/task/verification",
     response_model=VerificationResponse,
-    summary="Verify Email in RSS Feed",
-    description="Check if the provided email exists in the RSS feed.",
+    summary="Verify Email in Google Spreadsheet",
+    description="Check if the provided email exists in the Google Spreadsheet.",
 )
 async def verify_email(
     address: str = Query(..., description="The email of the user.")
@@ -38,27 +43,31 @@ async def verify_email(
 
     async with httpx.AsyncClient() as client:
         try:
-            # Call the RSS feed API using HTTP GET
-            response = await client.get(RSS_FEED_URL)
+            # Fetch the spreadsheet data in CSV format
+            response = await client.get(SPREADSHEET_CSV_URL)
 
-            # Check if the RSS feed API request was successful
+            # Check if the request was successful
             if response.status_code != 200:
                 raise HTTPException(
                     status_code=response.status_code,
-                    detail=f"Error fetching RSS feed data: {response.text}"
+                    detail=f"Error fetching spreadsheet data: {response.text}"
                 )
 
-            # Check if the email exists in the response content
-            rss_content = response.text
-            if address in rss_content:
-                return VerificationResponse(result={"isValid": True})
-            else:
-                return VerificationResponse(result={"isValid": False})
+            # Parse the CSV content
+            csv_content = StringIO(response.text)
+            csv_reader = csv.DictReader(csv_content)
+
+            # Check if the email exists in the spreadsheet
+            for row in csv_reader:
+                if address in row.values():
+                    return VerificationResponse(result={"isValid": True})
+
+            return VerificationResponse(result={"isValid": False})
 
         except httpx.RequestError as e:
             raise HTTPException(
                 status_code=500,
-                detail=f"An error occurred while connecting to the RSS feed API: {e}"
+                detail=f"An error occurred while connecting to the spreadsheet: {e}"
             )
 
 @app.get("/")
