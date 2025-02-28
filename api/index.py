@@ -24,8 +24,8 @@ class VerificationResponse(BaseModel):
 
 API_URL = "https://neko-web.api.wallet.bitcoin.com/api/v2/quests/progresses"
 SEASON_IDS = [
-    "baa08abe-d5c3-4a53-befe-1962d88e0a8a",
-    "b00f039c-218c-4fc5-8209-fe38000597af",
+    "c8ba2e72-12ff-40dc-84e0-27b78495cea7",
+    "a2a719f3-d7e4-4e5d-b97a-9430beac7a63",
     "8e3b98aa-5242-4c12-ae86-f245d7294375",
     "241efc1b-9dc8-4e4b-bd81-5ee0b94968d3"
 ]
